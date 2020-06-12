@@ -5,6 +5,13 @@
  */
 package com.okta.okta.sdk.example;
 
+import com.okta.authn.sdk.client.AuthenticationClient;
+import com.okta.authn.sdk.client.AuthenticationClients;
+import com.okta.authn.sdk.http.Header;
+import com.okta.authn.sdk.http.QueryParameter;
+import com.okta.authn.sdk.http.RequestContext;
+import com.okta.authn.sdk.resource.AuthenticationResponse;
+import com.okta.authn.sdk.resource.UnlockAccountRequest;
 import com.okta.sdk.authc.credentials.TokenClientCredentials;
 import com.okta.sdk.client.Client;
 import com.okta.sdk.client.Clients;
@@ -17,7 +24,14 @@ import com.okta.sdk.resource.application.SamlApplicationSettingsSignOn;
 import com.okta.sdk.resource.application.SwaApplication;
 import com.okta.sdk.resource.application.SwaApplicationSettings;
 import com.okta.sdk.resource.application.SwaApplicationSettingsApplication;
+import com.okta.sdk.resource.user.ForgotPasswordResponse;
+import com.okta.sdk.resource.user.ResetPasswordToken;
 import com.okta.sdk.resource.user.User;
+import com.okta.sdk.resource.user.UserActivationToken;
+import com.okta.sdk.resource.user.UserBuilder;
+import com.okta.sdk.resource.user.factor.FactorType;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
@@ -26,13 +40,112 @@ import com.okta.sdk.resource.user.User;
 public class CreateSAMLApp {
 
     public static void main(String[] args) {
+        String oktaOrgURL = "{oktaURL}";
+        String apiKey = "{apikey}";
+        
         Client client = Clients.builder()
                 
-                .setOrgUrl("https://{oktaorg}")
-                .setClientCredentials(new TokenClientCredentials("{apikey}"))
+                .setOrgUrl(oktaOrgURL)
+                .setClientCredentials(new TokenClientCredentials(apiKey))
                 .build();
+        List<Header> headers = new ArrayList<>();
+        headers.add(new Header("Authorization", "SSWS "+apiKey));
+        List<QueryParameter> queryParameters = new ArrayList<>();
+        AuthenticationClient authClient = AuthenticationClients.builder()
+            .setOrgUrl(oktaOrgURL)
+                
+               
+            .build();
+         RequestContext requestContext = new RequestContext(headers, queryParameters);
+         
+        /*
+         User Activate, Password reset, unlock recovery without triggering email
+         */ 
+        //userActivateTest(client);
+        //resetPasswordSample(client);
+        //userUnlockTest(authClient, requestContext);
+    }
+    
+    
+    /*
+    curl --location --request POST 'https://okta url/api/v1/authn/recovery/unlock' \
+    --header 'Accept: application/json' \
+    --header 'Content-Type: application/json' \
+    --header 'Authorization: SSWS {apikey}' \
+    --data-raw '{
+      "username": "{oktausername}",
+      "relayState": "teststate"
+    }  '
+    */
+      private static void userUnlockTest(AuthenticationClient client, RequestContext request){
+        try{
+           // AuthenticationResponse response = client.unlockAccount("vsripada@setsolutions.com", null, "relayState", null);
+            UnlockAccountRequest unlockRequest = client.instantiate(UnlockAccountRequest.class);
+            unlockRequest.setRelayState("relayState");
+           
+            unlockRequest.setUsername("vsripada@setsolutions.com");
+            AuthenticationResponse response = client.unlockAccount(unlockRequest, request, null);
+            System.out.println("getting token");
+             
+            System.out.println(response.toString());
+           
+            
+        }
+        catch(Exception e){
+            System.out.println(e);
+        }
+        
+    }
+    
+    
+    /*
+      curl --location --request POST 'https://{oktaurl}/api/v1/users/{userid}/lifecycle/reset_password?sendEmail=false' \
+    --header 'Content-Type: application/json' \
+    --header 'Accept: application/json' \
+    --header 'Authorization: SSWS {apikey}' \
+    --data-raw ''
+      */
+    private static void resetPasswordSample(Client client){
+        User user = client.getUser("vsripada@setsolutions.com");
+        ResetPasswordToken token =  user.resetPassword(null, false);
+        System.out.println("getting token");
+        System.out.println(token);
+    }
+    
+    /*
+    curl -v -X POST \
+    -H "Accept: application/json" \
+    -H "Content-Type: application/json" \
+    -H "Authorization: SSWS ${api_token}" \
+    "https://${yourOktaDomain}/api/v1/users/00ub0oNGTSWTBKOLGLNR/lifecycle/activate?sendEmail=false"
+    */
+    
+    private static void userActivateTest(Client client) {
 
-        //  Application samlApp = client.getApplication("0oajnewtpb28chytr0h7");
+        String password = "Passw0rd!2@3#";
+        String firstName = "John";
+        String lastName = "Activate";
+        String email = "john-activate@example.com";
+
+        User user = UserBuilder.instance()
+                .setEmail(email)
+                .setFirstName(firstName)
+                .setLastName(lastName)
+                .setPassword(password.toCharArray())
+                .setActive(false)
+                .buildAndCreate(client);
+        
+        
+
+        UserActivationToken token = user.activate(false);
+        System.out.println(token.getActivationToken());
+
+
+
+    }
+    
+    private static void createApplication(Client client){
+         //  Application samlApp = client.getApplication("0oajnewtpb28chytr0h7");
         SamlApplication samlApplication = client.instantiate(SamlApplication.class)
                 // samlApplication.setSettings();
 
@@ -69,7 +182,6 @@ public class CreateSAMLApp {
         }
 
         System.out.println(samlApplication);
-
     }
 
 }
